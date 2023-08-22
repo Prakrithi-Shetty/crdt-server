@@ -1,23 +1,24 @@
 const WebSocket = require("ws");
+const https = require("https");
+const fs = require("fs");
 
-const wss = new WebSocket.Server({ port: 3001 }); // Signaling server will run on port 4444
+const port = process.env.PORT || 3001;
 
-// Store connected clients
-const clients = new Set();
+const server = https.createServer({
+  cert: fs.readFileSync("path/to/cert.crt"),
+  key: fs.readFileSync("path/to/private-key.key"),
+});
+
+const wss = new WebSocket.Server({ server });
 
 wss.on("connection", (ws) => {
-  clients.add(ws);
   console.log("Client connected");
 
-  ws.on('open', () => {
-    console.log('WebSocket connection opened'); 
-  });
-
   ws.on("message", (message) => {
-    // Broadcast the received message to all other clients
-    console.log(`==> : message:`, message);
+    console.log(`Received message: ${message}`);
 
-    clients.forEach((client) => {
+    // Broadcast the received message to all other clients
+    wss.clients.forEach((client) => {
       if (client !== ws && client.readyState === WebSocket.OPEN) {
         client.send(message);
       }
@@ -25,7 +26,10 @@ wss.on("connection", (ws) => {
   });
 
   ws.on("close", () => {
-    clients.delete(ws);
     console.log("Client disconnected");
   });
+});
+
+server.listen(port, () => {
+  console.log(`WebSocket server is listening on port ${port}`);
 });
